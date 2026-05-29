@@ -20,9 +20,11 @@ Before installing the extension, you need an API key from Groq:
 
 ## 🚀 Installation
 
-Since this extension is not on the Chrome Web Store, you will need to load it manually:
-
-1. **Download and Extract:** Download the extension's zip file and extract it to a folder on your computer.
+1. **Download the Extension:**
+   - Go to the GitHub repository: [cvr-noob/ib-solver](https://github.com/cvr-noob/ib-solver).
+   - Click on the green **Code** button at the top right.
+   - Select **Download ZIP** from the dropdown menu.
+   - Extract the downloaded ZIP file to a folder on your computer.
 2. **Open Extensions Page:** Open your browser and navigate to `chrome://extensions` (or `edge://extensions`, `brave://extensions`).
 3. **Enable Developer Mode:** Toggle on **Developer mode** at the top right of the page.
 4. **Load the Extension:** Click the **Load unpacked** button and select the folder you extracted in Step 1.
