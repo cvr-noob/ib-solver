@@ -15,56 +15,50 @@
     return { title, statement };
   }
 
-  // ── Monaco Helpers ───────────────────────────────────────────────────────────
 
-  function getMonacoEditor() {
-    // Prefer the global monaco API
-    if (window.monaco && window.monaco.editor) {
-      const editors = window.monaco.editor.getEditors();
-      if (editors && editors.length > 0) return editors[0];
-    }
-    // Walk DOM element properties for the editor instance
-    const editorEl = document.querySelector('.monaco-editor');
-    if (!editorEl) return null;
-    for (const key of Object.keys(editorEl)) {
-      try {
-        const val = editorEl[key];
-        if (val && typeof val.getValue === 'function' && typeof val.setValue === 'function') {
-          return val;
-        }
-      } catch {}
-    }
-    return null;
-  }
+  // ── Monaco Helpers (via bridge) ─────────────────────────────────────────────
 
   function extractCodeFromEditor() {
-    const editor = getMonacoEditor();
-    if (editor) return editor.getValue();
-    // Last-resort fallback
-    const ta = document.querySelector('textarea.inputarea');
-    return ta ? ta.value : '';
+    return new Promise((resolve) => {
+      const handler = (e) => {
+        window.removeEventListener('ib-solver-code-result', handler);
+        resolve(e.detail || '');
+      };
+      window.addEventListener('ib-solver-code-result', handler);
+      window.dispatchEvent(new CustomEvent('ib-solver-get-code'));
+
+      // Fallback timeout — if inject.js hasn't loaded yet, read textarea
+      setTimeout(() => {
+        window.removeEventListener('ib-solver-code-result', handler);
+        const ta = document.querySelector('textarea.inputarea');
+        resolve(ta ? ta.value : '');
+      }, 500);
+    });
   }
 
 
 
-  // ── Monaco Editor Writing ────────────────────────────────────────────────────
+  // ── Monaco Editor Writing (via bridge) ──────────────────────────────────────
 
   async function typeCodeIntoEditor(code) {
-    await navigator.clipboard.writeText(code);
+    return new Promise((resolve, reject) => {
+      const handler = (e) => {
+        window.removeEventListener('ib-solver-set-code-done', handler);
+        if (e.detail?.ok) {
+          resolve();
+        } else {
+          reject(new Error(e.detail?.error || 'Failed to set code in editor'));
+        }
+      };
+      window.addEventListener('ib-solver-set-code-done', handler);
+      window.dispatchEvent(new CustomEvent('ib-solver-set-code', { detail: code }));
 
-    const textarea = document.querySelector('textarea.inputarea');
-    if (!textarea) throw new Error('Editor not found');
-
-    textarea.focus();
-    await sleep(150);
-
-    // Select all existing content
-    document.execCommand('selectAll');
-    await sleep(100);
-
-    // Paste from clipboard — Monaco intercepts this and handles it natively
-    document.execCommand('paste');
-    await sleep(300);
+      // Timeout safety
+      setTimeout(() => {
+        window.removeEventListener('ib-solver-set-code-done', handler);
+        reject(new Error('Timed out writing code to editor'));
+      }, 3000);
+    });
   }
 
   async function sleep(ms) {
@@ -73,50 +67,78 @@
 
   // ── Groq API ─────────────────────────────────────────────────────────────────
 
-  async function solveWithAI(problemDetails, codeTemplate, apiKey, model) {
+  async function solveWithAI(problemDetails, codeTemplate, apiKey, model, fallbackModel) {
     const { title, statement } = problemDetails;
 
-    const systemPrompt = `You are an expert competitive programmer. Given a coding problem and a code template, produce a complete Python solution.
+    const systemPrompt = `You are an expert competitive programmer. You will be given a coding problem and a Python code template from InterviewBit. Your job is to fill in the template with a correct solution.
 
-Rules:
-- Output ONLY valid JSON: {"code": "<python code here>"}
-- No comments in the code whatsoever
-- No docstrings
-- Use clean, minimal Python
-- The function/class signature must match what the problem expects (infer from the template)
-- Handle edge cases
-- Do not include any explanation outside the JSON`;
+CRITICAL RULES:
+1. You MUST keep the EXACT same class name, method name, and parameter signature from the template.
+2. You MUST keep any provided class/method structure from the template UNCHANGED.
+3. Only fill in the method body (or fix bugs if the problem asks to fix a bug).
+4. Do NOT rename anything, do NOT change parameters, do NOT change return types.
+5. Do NOT add any new comments or docstrings. Keep any comments already in the template. NO EXTRA COMMENTS ALLOWED.
+6. Output ONLY valid JSON: {"code": "<complete python solution>"}
+7. The "code" field must contain the ENTIRE template with your solution filled in, ready to submit as-is.
+8. STRICLY PREVENT COMMENTS. ONLY COMMENTS FROM THE TEMPLATE CAN BE THERE AND NO EXTRA COMMENTS.`;
 
-    const userPrompt = `Problem Title: ${title}
+    const userPrompt = `Problem: ${title}
 
-Problem Statement:
+Statement:
 ${statement}
 
-Code Template (implement in Python with same signature):
+Code Template (keep this structure EXACTLY, only fill in the logic):
+\`\`\`python
 ${codeTemplate}
+\`\`\`
 
-Return JSON: {"code": "<complete python solution, no comments>"}`;
+Return ONLY JSON: {"code": "<complete solution keeping the exact template structure>"}`;
 
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: 0.1,
-        max_tokens: 2048,
-      }),
-    });
 
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Groq error ${res.status}: ${err.slice(0, 200)}`);
+    let res;
+    let usedModel = model;
+    try {
+      res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: usedModel,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.1,
+          max_tokens: 2048,
+        }),
+      });
+
+      if (!res.ok) throw new Error(`Primary model error ${res.status}`);
+    } catch (err) {
+      console.warn('Primary model failed, trying fallback model', err);
+      usedModel = fallbackModel;
+      res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: usedModel,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.1,
+          max_tokens: 2048,
+        }),
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`Fallback model error ${res.status}: ${errText.slice(0, 200)}`);
+      }
     }
 
     const data = await res.json();
@@ -125,14 +147,22 @@ Return JSON: {"code": "<complete python solution, no comments>"}`;
 
     let parsed;
     try {
-      const clean = content.replace(/```json\n?|```\n?/g, '').trim();
+      // Strip markdown code fences if present
+      let clean = content.replace(/```(?:json)?\n?/g, '').trim();
       parsed = JSON.parse(clean);
     } catch {
-      throw new Error('Failed to parse JSON from AI response');
+      // Fallback: extract the code value with a regex
+      const match = content.match(/"code"\s*:\s*"([\s\S]*?)"\s*\}?\s*$/);
+      if (match) {
+        // Unescape JSON string escapes
+        parsed = { code: match[1].replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\\"/g, '"').replace(/\\\\/g, '\\') };
+      } else {
+        throw new Error('Failed to parse AI response');
+      }
     }
 
     if (!parsed.code) throw new Error('No "code" field in AI response');
-    return parsed.code;
+    return parsed.code.trim();
   }
 
   // ── Submit ───────────────────────────────────────────────────────────────────
@@ -237,9 +267,50 @@ Return JSON: {"code": "<complete python solution, no comments>"}`;
       chrome.storage.sync.set({ autoSubmit: e.target.checked });
     });
 
-    document.getElementById('ib-solver-fab')?.addEventListener('click', () => {
-      document.getElementById('ib-solver-card')?.classList.toggle('hidden');
-    });
+    const fab = document.getElementById('ib-solver-fab');
+    const panel = document.getElementById('ib-solver-panel');
+    let isDragging = false;
+    let hasDragged = false;
+    let startX, startY, initialX, initialY;
+
+    if (fab && panel) {
+      fab.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        hasDragged = false;
+        startX = e.clientX;
+        startY = e.clientY;
+        const rect = panel.getBoundingClientRect();
+        initialX = rect.left;
+        initialY = rect.top;
+        document.body.style.userSelect = 'none';
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasDragged = true;
+        
+        panel.style.bottom = 'auto';
+        panel.style.right = 'auto';
+        panel.style.left = `${initialX + dx}px`;
+        panel.style.top = `${initialY + dy}px`;
+      });
+
+      document.addEventListener('mouseup', () => {
+        isDragging = false;
+        document.body.style.userSelect = '';
+      });
+
+      fab.addEventListener('click', (e) => {
+        if (hasDragged) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        document.getElementById('ib-solver-card')?.classList.toggle('hidden');
+      });
+    }
 
     document.getElementById('ib-close')?.addEventListener('click', () => {
       document.getElementById('ib-solver-card')?.classList.add('hidden');
@@ -249,7 +320,7 @@ Return JSON: {"code": "<complete python solution, no comments>"}`;
       clearStatus();
 
       const settings = await new Promise(res =>
-        chrome.storage.sync.get(['apiKey', 'model', 'autoSubmit'], res)
+        chrome.storage.sync.get(['apiKey', 'model', 'fallbackModel', 'autoSubmit'], res)
       );
 
       if (!settings.apiKey) {
@@ -257,7 +328,8 @@ Return JSON: {"code": "<complete python solution, no comments>"}`;
         return;
       }
 
-      const model = settings.model || 'llama-3.3-70b-versatile';
+      const model = settings.model || 'openai/gpt-oss-120b';
+      const fallbackModel = settings.fallbackModel || 'groq/compound';
       const autoSubmit = document.getElementById('ib-auto-submit')?.checked ?? false;
 
       setSolveBtn(true);
@@ -265,10 +337,10 @@ Return JSON: {"code": "<complete python solution, no comments>"}`;
 
       try {
         const problem = extractProblemDetails();
-        const template = extractCodeFromEditor();
+        const template = await extractCodeFromEditor();
 
         setStatus('Calling Groq...', 'info');
-        const code = await solveWithAI(problem, template, settings.apiKey, model);
+        const code = await solveWithAI(problem, template, settings.apiKey, model, fallbackModel);
 
         setStatus('Writing code...', 'info');
         await typeCodeIntoEditor(code);

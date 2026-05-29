@@ -211,9 +211,15 @@
     </div>
 
     <div class="field">
-      <label>Model</label>
-      <input type="text" id="model" placeholder="e.g. llama-3.3-70b-versatile" />
-      <div class="hint">Any model slug from <a class="hint-link" href="https://console.groq.com/docs/models" target="_blank">console.groq.com/docs/models</a><br>Try: <code style="color:#00e5b0">llama-3.3-70b-versatile</code> or <code style="color:#00e5b0">moonshotai/kimi-k2-instruct</code></div>
+      <label>Primary Model</label>
+      <input type="text" id="model" placeholder="e.g. openai/gpt-oss-120b" />
+      <div class="hint">Default: <code style="color:#00e5b0">openai/gpt-oss-120b</code></div>
+    </div>
+
+    <div class="field">
+      <label>Fallback Model</label>
+      <input type="text" id="fallbackModel" placeholder="e.g. groq/compound" />
+      <div class="hint">Used if primary fails. Default: <code style="color:#00e5b0">groq/compound</code></div>
     </div>
 
     <div class="divider"></div>

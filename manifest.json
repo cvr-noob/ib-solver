@@ -3,12 +3,18 @@
   "name": "InterviewBit AI Solver",
   "version": "1.0.0",
   "description": "Solve InterviewBit problems using AI via OpenRouter",
-  "permissions": ["storage", "activeTab", "scripting", "clipboardWrite"],
+  "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": [
     "https://www.interviewbit.com/*",
     "https://openrouter.ai/*"
   ],
   "content_scripts": [
+    {
+      "matches": ["https://www.interviewbit.com/problems/*"],
+      "js": ["inject.js"],
+      "run_at": "document_idle",
+      "world": "MAIN"
+    },
     {
       "matches": ["https://www.interviewbit.com/problems/*"],
       "js": ["content.js"],
