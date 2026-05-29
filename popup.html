@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>IB AI Solver</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;700;800&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0f14;
+      --surface: #161922;
+      --border: #252a35;
+      --accent: #00e5b0;
+      --accent2: #7c6aff;
+      --text: #e8eaf0;
+      --muted: #6b7280;
+      --danger: #ff4d6a;
+    }
+
+    body {
+      width: 320px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #0d1117 0%, #161922 100%);
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .header::before {
+      content: '';
+      position: absolute;
+      top: -20px; right: -20px;
+      width: 80px; height: 80px;
+      background: radial-gradient(circle, rgba(0,229,176,0.15) 0%, transparent 70%);
+      border-radius: 50%;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+
+    .logo-icon {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+
+    .logo-text {
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+    }
+
+    .logo-text span { color: var(--accent); }
+
+    .subtitle {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 0.5px;
+    }
+
+    .body { padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+
+    .field { display: flex; flex-direction: column; gap: 6px; }
+
+    label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    input[type="text"], input[type="password"], select {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      padding: 10px 12px;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus, select:focus { border-color: var(--accent); }
+
+    select option { background: var(--surface); }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+
+    .toggle-label { font-size: 12px; color: var(--text); }
+    .toggle-sub { font-size: 10px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+
+    .toggle {
+      position: relative;
+      width: 36px; height: 20px;
+      flex-shrink: 0;
+    }
+
+    .toggle input { opacity: 0; width: 0; height: 0; }
+
+    .toggle-slider {
+      position: absolute; inset: 0;
+      background: var(--border);
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .toggle-slider::after {
+      content: '';
+      position: absolute;
+      width: 14px; height: 14px;
+      background: white;
+      border-radius: 50%;
+      top: 3px; left: 3px;
+      transition: transform 0.2s;
+    }
+
+    .toggle input:checked + .toggle-slider { background: var(--accent); }
+    .toggle input:checked + .toggle-slider::after { transform: translateX(16px); }
+
+    .save-btn {
+      background: linear-gradient(135deg, var(--accent), #00c49a);
+      color: #0a1a14;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      border: none;
+      border-radius: 8px;
+      padding: 11px;
+      cursor: pointer;
+      width: 100%;
+      letter-spacing: 0.3px;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+
+    .save-btn:hover { opacity: 0.9; }
+    .save-btn:active { transform: scale(0.98); }
+
+    .status {
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      text-align: center;
+      padding: 6px;
+      border-radius: 6px;
+      display: none;
+    }
+
+    .status.ok { display: block; background: rgba(0,229,176,0.1); color: var(--accent); }
+    .status.err { display: block; background: rgba(255,77,106,0.1); color: var(--danger); }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 2px 0;
+    }
+
+    .hint {
+      font-size: 10px;
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+      line-height: 1.5;
+    }
+
+    a.hint-link { color: var(--accent2); text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">
+      <div class="logo-icon">⚡</div>
+      <div class="logo-text">IB <span>AI</span> Solver</div>
+    </div>
+    <div class="subtitle">Groq · Python · Auto-submit</div>
+  </div>
+
+  <div class="body">
+    <div class="field">
+      <label>Groq API Key</label>
+      <input type="password" id="apiKey" placeholder="gsk_..." />
+      <div class="hint">Get yours at <a class="hint-link" href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a></div>
+    </div>
+
+    <div class="field">
+      <label>Model</label>
+      <input type="text" id="model" placeholder="e.g. llama-3.3-70b-versatile" />
+      <div class="hint">Any model slug from <a class="hint-link" href="https://console.groq.com/docs/models" target="_blank">console.groq.com/docs/models</a><br>Try: <code style="color:#00e5b0">llama-3.3-70b-versatile</code> or <code style="color:#00e5b0">moonshotai/kimi-k2-instruct</code></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">Auto-submit</div>
+        <div class="toggle-sub">Submit after code is typed</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="autoSubmit" />
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    <button class="save-btn" id="saveBtn">Save Settings</button>
+    <div class="status" id="status"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
