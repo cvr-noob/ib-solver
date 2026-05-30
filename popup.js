@@ -34,7 +34,7 @@ function applyProviderUI(provider) {
 }
 
 // ── Load saved settings ─────────────────────────────────────────────────────
-chrome.storage.sync.get(['provider', 'apiKey', 'geminiApiKey', 'model', 'fallbackModel', 'autoSubmit'], data => {
+chrome.storage.sync.get(['provider', 'apiKey', 'geminiApiKey', 'model', 'fallbackModel', 'autoSubmit', 'autoRun'], data => {
   const provider = data.provider || 'groq';
   const providerRadio = document.querySelector(`input[name="provider"][value="${provider}"]`);
   if (providerRadio) providerRadio.checked = true;
@@ -50,6 +50,20 @@ chrome.storage.sync.get(['provider', 'apiKey', 'geminiApiKey', 'model', 'fallbac
   if (data.model) $('model').value = data.model;
   if (data.fallbackModel) $('fallbackModel').value = data.fallbackModel;
   $('autoSubmit').checked = data.autoSubmit || false;
+  $('autoRun').checked = data.autoRun || false;
+});
+
+// Mutual exclusivity of toggles
+$('autoSubmit').addEventListener('change', e => {
+  if (e.target.checked) {
+    $('autoRun').checked = false;
+  }
+});
+
+$('autoRun').addEventListener('change', e => {
+  if (e.target.checked) {
+    $('autoSubmit').checked = false;
+  }
 });
 
 // ── Provider switch ─────────────────────────────────────────────────────────
@@ -85,13 +99,14 @@ $('saveBtn').addEventListener('click', () => {
   const model = $('model').value;
   const fallbackModel = $('fallbackModel').value;
   const autoSubmit = $('autoSubmit').checked;
+  const autoRun = $('autoRun').checked;
 
   if (!key) {
     showStatus('API key is required', 'err');
     return;
   }
 
-  const payload = { provider, model, fallbackModel, autoSubmit };
+  const payload = { provider, model, fallbackModel, autoSubmit, autoRun };
 
   // Store the key under the correct field
   if (provider === 'gemini') {

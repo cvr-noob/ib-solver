@@ -248,10 +248,15 @@ Return ONLY JSON: {"code": "<complete solution keeping the exact template struct
     return parseAIResponse(content);
   }
 
-  // ── Submit ───────────────────────────────────────────────────────────────────
+  // ── Submit & Run ─────────────────────────────────────────────────────────────
 
   function clickSubmit() {
     const btn = document.querySelector('button.p-judge-actions__submit, button[class*="p-judge-actions__submit"]');
+    if (btn) btn.click();
+  }
+
+  function clickRun() {
+    const btn = document.querySelector('button.p-judge-actions__test, button[class*="p-judge-actions__test"]');
     if (btn) btn.click();
   }
 
@@ -277,6 +282,14 @@ Return ONLY JSON: {"code": "<complete solution keeping the exact template struct
             <span class="ib-toggle-label">Auto-submit</span>
             <label class="ib-toggle">
               <input type="checkbox" id="ib-auto-submit" />
+              <span class="ib-toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="ib-toggle-row">
+            <span class="ib-toggle-label">Auto-run</span>
+            <label class="ib-toggle">
+              <input type="checkbox" id="ib-auto-run" />
               <span class="ib-toggle-slider"></span>
             </label>
           </div>
@@ -341,13 +354,33 @@ Return ONLY JSON: {"code": "<complete solution keeping the exact template struct
     const titleEl = document.getElementById('ib-prob-title');
     if (titleEl) titleEl.textContent = details.title;
 
-    chrome.storage.sync.get(['autoSubmit'], data => {
-      const toggle = document.getElementById('ib-auto-submit');
-      if (toggle) toggle.checked = data.autoSubmit || false;
+    chrome.storage.sync.get(['autoSubmit', 'autoRun'], data => {
+      const toggleSubmit = document.getElementById('ib-auto-submit');
+      if (toggleSubmit) toggleSubmit.checked = data.autoSubmit || false;
+      const toggleRun = document.getElementById('ib-auto-run');
+      if (toggleRun) toggleRun.checked = data.autoRun || false;
     });
 
     document.getElementById('ib-auto-submit')?.addEventListener('change', e => {
-      chrome.storage.sync.set({ autoSubmit: e.target.checked });
+      const autoSubmit = e.target.checked;
+      const toggleRun = document.getElementById('ib-auto-run');
+      if (autoSubmit && toggleRun) {
+        toggleRun.checked = false;
+        chrome.storage.sync.set({ autoSubmit: true, autoRun: false });
+      } else {
+        chrome.storage.sync.set({ autoSubmit: autoSubmit });
+      }
+    });
+
+    document.getElementById('ib-auto-run')?.addEventListener('change', e => {
+      const autoRun = e.target.checked;
+      const toggleSubmit = document.getElementById('ib-auto-submit');
+      if (autoRun && toggleSubmit) {
+        toggleSubmit.checked = false;
+        chrome.storage.sync.set({ autoRun: true, autoSubmit: false });
+      } else {
+        chrome.storage.sync.set({ autoRun: autoRun });
+      }
     });
 
     const fab = document.getElementById('ib-solver-fab');
@@ -495,6 +528,7 @@ Return ONLY JSON: {"code": "<complete solution keeping the exact template struct
       }
 
       const autoSubmit = document.getElementById('ib-auto-submit')?.checked ?? false;
+      const autoRun = document.getElementById('ib-auto-run')?.checked ?? false;
 
       setSolveBtn(true);
       setStatus('Extracting problem...', 'info');
@@ -515,6 +549,11 @@ Return ONLY JSON: {"code": "<complete solution keeping the exact template struct
           await sleep(500);
           clickSubmit();
           setStatus('✓ Submitted!', 'ok');
+        } else if (autoRun) {
+          setStatus('Running tests...', 'info');
+          await sleep(500);
+          clickRun();
+          setStatus('✓ Running tests!', 'ok');
         } else {
           setStatus('✓ Code entered! Review before submitting.', 'ok');
         }
