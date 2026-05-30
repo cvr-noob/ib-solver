@@ -21,7 +21,7 @@
     }
 
     body {
-      width: 320px;
+      width: 340px;
       background: var(--bg);
       color: var(--text);
       font-family: 'Syne', sans-serif;
@@ -106,6 +106,60 @@
 
     select option { background: var(--surface); }
 
+    /* ── Provider selector ────────────────────────────────── */
+    .provider-selector {
+      display: flex;
+      gap: 8px;
+    }
+
+    .provider-option {
+      flex: 1;
+      position: relative;
+    }
+
+    .provider-option input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .provider-option label.provider-label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 9px 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: 'Syne', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: none;
+      letter-spacing: 0;
+      transition: all 0.2s;
+    }
+
+    .provider-option input[type="radio"]:checked + label.provider-label {
+      background: rgba(0, 229, 176, 0.08);
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 0 12px rgba(0, 229, 176, 0.12);
+    }
+
+    .provider-option label.provider-label:hover {
+      border-color: rgba(0, 229, 176, 0.4);
+      color: var(--text);
+    }
+
+    .provider-icon {
+      font-size: 14px;
+    }
+
+    /* ── Toggle ───────────────────────────────────────────── */
     .toggle-row {
       display: flex;
       align-items: center;
@@ -200,26 +254,45 @@
       <div class="logo-icon">⚡</div>
       <div class="logo-text">IB <span>AI</span> Solver</div>
     </div>
-    <div class="subtitle">Groq · Python · Auto-submit</div>
+    <div class="subtitle">Groq · Gemini · Python · Auto-submit</div>
   </div>
 
   <div class="body">
+    <!-- Provider selector -->
     <div class="field">
-      <label>Groq API Key</label>
+      <label>Provider</label>
+      <div class="provider-selector">
+        <div class="provider-option">
+          <input type="radio" name="provider" id="providerGroq" value="groq" checked />
+          <label class="provider-label" for="providerGroq">
+            <span class="provider-icon">⚡</span> Groq
+          </label>
+        </div>
+        <div class="provider-option">
+          <input type="radio" name="provider" id="providerGemini" value="gemini" />
+          <label class="provider-label" for="providerGemini">
+            <span class="provider-icon">✦</span> Gemini
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label id="apiKeyLabel">Groq API Key</label>
       <input type="password" id="apiKey" placeholder="gsk_..." />
-      <div class="hint">Get yours at <a class="hint-link" href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a></div>
+      <div class="hint" id="apiKeyHint">Get yours at <a class="hint-link" href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a></div>
     </div>
 
     <div class="field">
       <label>Primary Model</label>
       <input type="text" id="model" placeholder="e.g. openai/gpt-oss-120b" />
-      <div class="hint">Default: <code style="color:#00e5b0">openai/gpt-oss-120b</code></div>
+      <div class="hint" id="modelHint">Default: <code style="color:#00e5b0">openai/gpt-oss-120b</code></div>
     </div>
 
     <div class="field">
       <label>Fallback Model</label>
       <input type="text" id="fallbackModel" placeholder="e.g. groq/compound" />
-      <div class="hint">Used if primary fails. Default: <code style="color:#00e5b0">groq/compound</code></div>
+      <div class="hint" id="fallbackHint">Used if primary fails. Default: <code style="color:#00e5b0">groq/compound</code></div>
     </div>
 
     <div class="divider"></div>
