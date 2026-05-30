@@ -291,10 +291,20 @@ Return ONLY JSON: {"code": "<complete solution keeping the exact template struct
         const dy = e.clientY - startY;
         if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasDragged = true;
         
+        let newX = initialX + dx;
+        let newY = initialY + dy;
+        
+        const rect = panel.getBoundingClientRect();
+        const maxLeft = window.innerWidth - rect.width;
+        const maxTop = window.innerHeight - rect.height;
+        
+        newX = Math.max(0, Math.min(newX, maxLeft));
+        newY = Math.max(0, Math.min(newY, maxTop));
+        
         panel.style.bottom = 'auto';
         panel.style.right = 'auto';
-        panel.style.left = `${initialX + dx}px`;
-        panel.style.top = `${initialY + dy}px`;
+        panel.style.left = `${newX}px`;
+        panel.style.top = `${newY}px`;
       });
 
       document.addEventListener('mouseup', () => {
@@ -302,19 +312,49 @@ Return ONLY JSON: {"code": "<complete solution keeping the exact template struct
         document.body.style.userSelect = '';
       });
 
+      const toggleCard = (forceClose = false) => {
+        const card = document.getElementById('ib-solver-card');
+        if (!card) return;
+        
+        const fabRectBefore = fab.getBoundingClientRect();
+        
+        if (forceClose) {
+          card.classList.add('hidden');
+        } else {
+          card.classList.toggle('hidden');
+        }
+        
+        setTimeout(() => {
+          const fabRectAfter = fab.getBoundingClientRect();
+          const panelRect = panel.getBoundingClientRect();
+          
+          let newX = panelRect.left + (fabRectBefore.left - fabRectAfter.left);
+          let newY = panelRect.top + (fabRectBefore.top - fabRectAfter.top);
+          
+          const maxLeft = window.innerWidth - panelRect.width;
+          const maxTop = window.innerHeight - panelRect.height;
+          
+          newX = Math.max(0, Math.min(newX, maxLeft));
+          newY = Math.max(0, Math.min(newY, maxTop));
+          
+          panel.style.left = `${newX}px`;
+          panel.style.top = `${newY}px`;
+        }, 0);
+      };
+
       fab.addEventListener('click', (e) => {
         if (hasDragged) {
           e.preventDefault();
           e.stopPropagation();
           return;
         }
-        document.getElementById('ib-solver-card')?.classList.toggle('hidden');
+        toggleCard();
+      });
+
+      document.getElementById('ib-close')?.addEventListener('click', () => {
+        toggleCard(true);
       });
     }
-
-    document.getElementById('ib-close')?.addEventListener('click', () => {
-      document.getElementById('ib-solver-card')?.classList.add('hidden');
-    });
 
     document.getElementById('ib-solve-btn')?.addEventListener('click', async () => {
       clearStatus();
